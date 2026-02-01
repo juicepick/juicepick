@@ -1,21 +1,25 @@
 {
     "name": "액상픽 - 최저가 액상 검색",
     "short_name": "액상픽",
-    "description": "대한민국 온라인 최저가 액상 검색 포널",
-    "start_url": "/inventory_report.html",
+    "description": "대한민국 온라인 최저가 액상 검색 포털",
+    "start_url": "./index.html",
+    "scope": "./",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#00a8ff",
+    "orientation": "portrait-primary",
     "icons": [
         {
-            "src": "https://via.placeholder.com/192?text=Pick",
+            "src": "assets/logo_placeholder.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         },
         {
-            "src": "https://via.placeholder.com/512?text=Pick",
+            "src": "assets/logo_placeholder.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         }
     ]
 }

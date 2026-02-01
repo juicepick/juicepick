@@ -289,6 +289,7 @@ def generate_report(data, sites):
         <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
         <link rel="manifest" href="manifest.json">
+        <meta name="theme-color" content="#00a8ff">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <style>
