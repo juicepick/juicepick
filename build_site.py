@@ -377,6 +377,7 @@ def generate_report(data, sites):
                 <a href="index.html" class="site-name">액상픽</a>
                 <ul class="nav-menu">
                     <!-- '액상검색' 삭제 요청 반영 -->
+                    <li><a href="blog/index.html">블로그</a></li>
                     <li><a href="board.html">자유게시판</a></li>
                     <li><a href="about.html">서비스소개</a></li>
                     <li><button onclick="toggleTheme()" class="theme-toggle"><i class="fas fa-moon" id="theme-icon"></i></button></li>
@@ -450,6 +451,7 @@ def generate_report(data, sites):
                     <h4>액상픽 (JuicePick)</h4>
                     <p style="margin-bottom: 15px;">대한민국 No.1 전자담배 액상 최저가 검색 포털</p>
                     <div class="footer-links">
+                        <a href="blog/index.html">블로그</a> | 
                         <a href="about.html">서비스소개</a> | 
                         <a href="terms.html">이용약관</a> | 
                         <a href="privacy.html" style="font-weight:bold;">개인정보처리방침</a> | 
