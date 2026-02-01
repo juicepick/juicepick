@@ -1,0 +1,637 @@
+import firebase_admin
+from firebase_admin import credentials, db
+import re
+import difflib
+import json
+import time
+
+# 1. Firebase 초기화
+if not firebase_admin._apps:
+    try:
+        cred = credentials.Certificate("key.json")
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': 'https://juicehunter-default-rtdb.asia-southeast1.firebasedatabase.app'
+        })
+    except Exception as e:
+        print(f"⚠️ Firebase 초기화 경고 (로컬 테스트용 무시 가능): {e}")
+
+# 2. 카테고리 키워드 정의
+CATEGORIES = {
+    "연초": ["시가", "타바코", "말보로", "던힐", "카멜", "마일드", "세븐", "버지니아", "클래식", "토바코", "구수한", "누룽지", "트리베카"],
+    "디저트": ["치즈", "케이크", "케익", "크림", "커피", "바닐라", "초코", "초콜릿", "우유", "밀크", "카라멜", "팝콘", 
+              "쿠키", "버터", "빵", "도넛", "푸딩", "아이스크림", "빙수", "요거트", "타르트", "마카롱", "커스터드"]
+}
+
+# 3. 불용어 리스트
+JUNK_WORDS = [
+    '입호흡', '폐호흡', '액상', 'csv', '기성', '모드', '솔트', 'nic', 's-nic', 'rs-nic', '합성', '천연', '줄기', 
+    '특가', '이벤트', '재입고', '신규', 'best', 'new', 'hot', '추천', '인기', '초특가', '할인',
+    '품절', '임박', '한정', '증정', '사은품', '코일', '팟', '기기', '탱크',
+    '[', ']', '(', ')', '{', '}', '★', '☆', '🚀', '🔥', '👍', '!', '?', '-', '/', '+', '=', '_', '@', '#', '$', '%', '^', '&', '*'
+]
+
+# 브랜드/단어 통일 맵
+WORD_MAP = {
+    'flex': '플렉스', 'flexx': '플렉스', '플렉스x': '플렉스',
+    'nasty': '네스티', 'vgod': '브이갓', 'tokyo': '도쿄', 'super': '슈퍼',
+    'aloe': '알로에', 'grape': '포도', 'apple': '사과', '레몬': '레몬',
+    'peach': '복숭아', 'berry': '베리', 'mint': '민트', 'menthol': '멘솔',
+    '슬로우블로우': '슬로우블로우', '블로우슬로우': '슬로우블로우',
+    '더블슬로우블로우': '더블슬로우블로우', '더블블로우슬로우': '더블슬로우블로우'
+}
+
+# 사이트 내부 키 -> 실제 이름 매핑
+SITE_NAME_MAP = {
+    'modu': '모두의액상', 'juice24': '액상24', 'tjf': '더쥬스팩토리',
+    'siasiu': '샤슈컴퍼니', 'vapemonster': '베이프몬스터', 'juice99': '99액상'
+}
+
+def classify_category(name):
+    name_lower = name.lower()
+    for k in CATEGORIES["연초"]:
+        if k in name_lower: return "연초"
+    for k in CATEGORIES["디저트"]:
+        if k in name_lower: return "디저트"
+    return "과일/멘솔"
+
+def clean_junk_text(text):
+    text = re.sub(r'리뷰\s*\d+', ' ', text)
+    text = re.sub(r'평점\s*\d+(\.\d+)?', ' ', text)
+    text = re.sub(r'\(\d+\)', ' ', text)
+    text = re.sub(r'하이민트|high\s*mint', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\d+(\.\d+)?\s*mg', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\d+(\.\d+)?\s*%', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'(^|\s)\d+(\.\d+)?(\s|$)', ' ', text)
+    return text.strip()
+
+CUSTOM_ALIASES = {}
+try:
+    with open("custom_aliases.json", "r", encoding="utf-8") as f:
+        CUSTOM_ALIASES = json.load(f)
+        print(f"🔄 사용자 정의 별칭 {len(CUSTOM_ALIASES)}개 로드됨")
+except FileNotFoundError:
+    pass
+
+def normalize_product(raw_name):
+    if raw_name in CUSTOM_ALIASES:
+        raw_name = CUSTOM_ALIASES[raw_name]
+    temp_name = raw_name.lower()
+    
+    event_suffix = ""
+    if "1+1" in temp_name: event_suffix = " (1+1)"
+    elif "2+1" in temp_name: event_suffix = " (2+1)"
+    elif "3+1" in temp_name: event_suffix = " (3+1)"
+    temp_name = temp_name.replace("1+1", "").replace("2+1", "").replace("3+1", "")
+    temp_name = clean_junk_text(temp_name)
+    
+    temp_name = re.sub(r'flex\s*x', 'flex', temp_name, flags=re.IGNORECASE)
+    temp_name = re.sub(r'플렉스\s*x', '플렉스', temp_name, flags=re.IGNORECASE)
+    temp_name = temp_name.replace("더블 슬로우 블로우", "더블슬로우블로우").replace("더블 블로우 슬로우", "더블슬로우블로우")
+    temp_name = temp_name.replace("슬로우 블로우", "슬로우블로우").replace("블로우 슬로우", "슬로우블로우")
+
+    volume = "30ml"
+    vol_match = re.search(r'(\d+)\s*ml', temp_name, re.IGNORECASE)
+    if vol_match:
+        volume = vol_match.group(1) + "ml"
+        temp_name = re.sub(r'\d+\s*ml', ' ', temp_name, flags=re.IGNORECASE)
+    
+    extracted_brand = ""
+    bracket_match = re.search(r'[\[\(](.*?)[\]\)]', temp_name)
+    if bracket_match:
+        extracted_brand = bracket_match.group(1).strip()
+        temp_name = re.sub(r'[\[\(].*?[\]\)]', ' ', temp_name)
+        
+    for junk in JUNK_WORDS:
+        temp_name = temp_name.replace(junk, ' ')
+    
+    tokens = temp_name.split()
+    if extracted_brand:
+        for junk in JUNK_WORDS: extracted_brand = extracted_brand.replace(junk, '')
+        tokens = extracted_brand.split() + tokens
+
+    final_tokens = []
+    seen = set()
+    for t in tokens:
+        t_clean = re.sub(r'[^a-z0-9가-힣]', '', t)
+        if not t_clean: continue
+        t_mapped = WORD_MAP.get(t_clean, t_clean)
+        for sub_t in t_mapped.split():
+            if sub_t in JUNK_WORDS or sub_t == '0': continue
+            if sub_t not in seen:
+                seen.add(sub_t)
+                final_tokens.append(sub_t)
+
+    final_tokens.sort()
+    clean_name = " ".join(final_tokens)
+    clean_name = clean_name.replace("더블슬로우블로우", "더블 슬로우 블로우").replace("슬로우블로우", "슬로우 블로우")
+    category = classify_category(clean_name)
+    match_key = "".join(final_tokens) + volume + event_suffix.strip()
+    
+    if len(clean_name) < 2: display_name = raw_name
+    else: display_name = f"{clean_name} {volume}{event_suffix}"
+
+    return {
+        "original": raw_name, "category": category,
+        "volume": volume, "match_key": match_key,
+        "display_name": display_name
+    }
+
+def process_data():
+    print("📥 Firebase 데이터 가져오는 중...")
+    try:
+        ref = db.reference('products')
+        all_data = ref.get()
+    except Exception as e:
+        return {}, []
+    
+    if not all_data: return {}, []
+
+    sites = ['modu', 'juice24', 'tjf', 'siasiu', 'vapemonster', 'juice99']
+    merged_data = {}
+    print("⚙️ 데이터 정규화 및 병합 중...")
+    
+    for site in sites:
+        site_data = all_data.get(site, {})
+        for item_key, item_val in site_data.items():
+            raw_name = item_val.get('name', '')
+            price = item_val.get('price', 0)
+            img = item_val.get('img') or item_val.get('image') or item_val.get('thumb') or ""
+            link = item_val.get('link', '')
+
+            if not raw_name or price <= 0: continue
+            if img.startswith("//"): img = "https:" + img
+
+            norm = normalize_product(raw_name)
+            m_key = norm['match_key']
+
+            if m_key not in merged_data:
+                merged_data[m_key] = {
+                    "display_name": norm['display_name'], "category": norm['category'],
+                    "volume": norm['volume'], "image": img, "prices": {}, "views": 0 
+                }
+            
+            current_site_price = merged_data[m_key]["prices"].get(site, {}).get("price", 999999)
+            if price < current_site_price:
+                merged_data[m_key]["prices"][site] = { "price": price, "link": link }
+            
+            if not merged_data[m_key]["image"] and img:
+                merged_data[m_key]["image"] = img
+    
+    try:
+        with open("additional_images.json", "r", encoding="utf-8") as f:
+            additional_images = json.load(f)
+            for m_key, img_url in additional_images.items():
+                if m_key in merged_data and not merged_data[m_key]['image']:
+                     merged_data[m_key]['image'] = img_url
+    except FileNotFoundError: pass
+
+    return merged_data, sites
+
+SEARCH_URLS = {
+    'modu': "https://xn--hu1b83j3sfk9e3xc.kr/product/search.html?keyword=",
+    'juice24': "https://juice24.kr/product/search.html?keyword=",
+    'tjf': "https://www.tjf.kr/product/search.html?keyword=",
+    'juice99': "https://99juice.co.kr/product/search.html?keyword=",
+    'siasiu': "https://siasiu.com/product/search.html?keyword=", 
+    'vapemonster': "https://vapemonster.co.kr/goods/goods_search.php?keyword="
+}
+
+def generate_report(data, sites):
+    print("📊 그리드형 포털 HTML 리포트 생성 중...")
+    import urllib.parse
+    grid_items_html = ""
+    
+    # 기본 정렬: 판매처 많은 순 (내림차순)
+    sorted_items = sorted(data.items(), key=lambda x: (len(x[1]['prices'])), reverse=True)
+    
+    for key, item in sorted_items:
+        sorted_shops = sorted(item['prices'].items(), key=lambda x: x[1]['price'])
+        min_price = 999999
+        shops_html = ""
+        
+        for s_key, p_info in sorted_shops:
+            p = p_info['price']
+            l = p_info['link']
+            if not l:
+                query = urllib.parse.quote(item['display_name'])
+                base = SEARCH_URLS.get(s_key, "")
+                if base: l = f"{base}{query}"
+            
+            if p < min_price: min_price = p
+            
+            site_display_name = SITE_NAME_MAP.get(s_key, s_key.upper())
+            shops_html += f"""
+                <div class='shop-row'>
+                    <span>{site_display_name}</span>
+                    <a href='{l}' target='_blank' class='price-link' onclick="updateViews('{key}')">{format(p, ',')}원</a>
+                </div>
+            """
+        
+        site_count = len(item['prices'])
+        img_src = item['image'] if item['image'] else "Gemini_Generated_Image_2wqxp32wqxp32wqx.png"
+        
+        grid_items_html += f"""
+        <div class="product-card" data-category="{item['category']}" data-price="{min_price}" data-views="{item.get('views', 0)}" data-sitecount="{site_count}" data-key="{key}">
+            <div class="card-image">
+                <img src="{img_src}" loading="lazy" alt="{item['display_name']}">
+                <span class="category-tag {item['category']}">{item['category']}</span>
+            </div>
+            <div class="card-info">
+                <h3 class="product-title">{item['display_name']}</h3>
+                <div class="price-section">
+                    <span class="label">최저가</span>
+                    <span class="price-val">{format(min_price, ',')}원</span>
+                </div>
+                <button class="buy-btn" onclick="toggleShopList(this)">최저가 확인하기</button>
+                <div class="shop-list">
+                    {shops_html}
+                </div>
+                <div class="views-count">
+                    <i class="fas fa-eye"></i> 조회 수: <span class="v-val">{item.get('views', 0)}</span>회
+                </div>
+            </div>
+        </div>
+        """
+
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="대한민국 액상 가격비교, 전자담배 액상 최저가를 검색하세요. 액상픽(Juice Pick)입니다.">
+        <meta name="keywords" content="전자담배 액상, 액상 가격비교, 액상 최저가, 전담 액상 추천, 입호흡 액상">
+        <meta property="og:title" content="액상픽 - 전자담배 액상 최저가 검색">
+        <meta property="og:type" content="website">
+
+        <title>액상픽 | 대한민국 온라인 최저가 액상 검색</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+        <link rel="manifest" href="manifest.json">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <style>
+            :root {{
+                --sky-blue: #00a8ff; --deep-sky: #0097e6; --bg: #f5f8fa; --text: #2f3640;
+                --card-bg: #ffffff; --gray: #7f8c8d; --border: #e1e8ed; --shadow: rgba(0,0,0,0.08);
+            }}
+            [data-theme="dark"] {{
+                --bg: #1e272e; --text: #dcdde1; --card-bg: #2f3640; --gray: #a4b0be;
+                --border: #353b48; --shadow: rgba(0,0,0,0.3); --sky-blue: #00a8ff; 
+            }}
+            * {{ margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }}
+            body {{ font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); }}
+            header {{ background: var(--card-bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }}
+            .nav-container {{ max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }}
+            .site-name {{ font-size: 26px; font-weight: 900; color: var(--sky-blue); text-decoration: none; }}
+            .nav-menu {{ display: flex; gap: 20px; list-style: none; align-items: center; }}
+            .nav-menu a {{ text-decoration: none; color: var(--text); font-weight: 700; font-size: 15px; }}
+            .theme-toggle {{ cursor: pointer; font-size: 20px; color: var(--text); background: none; border: none; padding: 5px; }}
+            
+            .hero {{ background: var(--card-bg); padding: 50px 20px; text-align: center; border-bottom: 1px solid var(--border); }}
+            .hero h1 {{ font-size: 32px; color: var(--text); margin-bottom: 10px; }}
+            .hero p {{ color: var(--gray); margin-bottom: 30px; font-size: 18px; }}
+
+            main {{ max-width: 1200px; margin: 30px auto; padding: 0 20px; }}
+            .toolbar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }}
+            
+            /* 검색창 스타일 복구 */
+            .search-bar {{ position:relative; flex-grow: 1; max-width: 400px; }}
+            .search-bar input {{ width: 100%; padding: 12px 40px 12px 15px; border-radius: 20px; border: 1px solid var(--border); outline: none; background: var(--card-bg); color: var(--text); }}
+            .search-bar i {{ position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--sky-blue); cursor: pointer; }}
+
+            .cat-filters {{ display: flex; gap: 8px; }}
+            .filter-btn {{ padding: 10px 18px; border: 1px solid var(--border); border-radius: 20px; background: var(--card-bg); cursor: pointer; font-weight: 700; font-size: 14px; color: var(--text); }}
+            .filter-btn.active {{ background: var(--sky-blue); color: #fff; border-color: var(--sky-blue); }}
+            .sort-options select {{ padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-weight: 600; outline: none; background: var(--card-bg); color: var(--text); }}
+
+            .product-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 25px; }}
+            .product-card {{ background: var(--card-bg); border-radius: 16px; overflow: hidden; border: 1px solid var(--border); transition: transform 0.3s; position: relative; }}
+            .product-card:hover {{ transform: translateY(-5px); box-shadow: 0 10px 25px var(--shadow); }}
+            .card-image {{ position: relative; height: 260px; background: var(--card-bg); padding: 20px; display: flex; align-items: center; justify-content: center; }}
+            .card-image img {{ max-width: 100%; max-height: 100%; object-fit: contain; }}
+            .category-tag {{ position: absolute; top: 15px; left: 15px; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; color: #fff; }}
+            .category-tag.과일\/멘솔 {{ background: #2ecc71; }} 
+            .category-tag.연초 {{ background: #e67e22; }}
+            .category-tag.디저트 {{ background: #9b59b6; }}
+            .card-info {{ padding: 20px; }}
+            .product-title {{ font-size: 17px; font-weight: 700; margin-bottom: 15px; height: 48px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }}
+            
+            .price-section {{ display: flex; flex-direction: column; margin-bottom: 15px; }}
+            .price-section .label {{ font-size: 12px; color: var(--gray); font-weight: 600; }}
+            .price-section .price-val {{ font-size: 22px; font-weight: 900; color: #e84118; }}
+            .buy-btn {{ display: block; text-align: center; background: var(--sky-blue); color: #fff; padding: 12px; border-radius: 10px; text-decoration: none; font-weight: 800; margin-bottom: 15px; border: none; width: 100%; cursor: pointer; }}
+            .shop-list {{ border-top: 1px solid #f0f0f0; padding-top: 12px; display: none; }}
+            .shop-list.active {{ display: block; }}
+            .shop-row {{ display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; padding: 5px 0; border-bottom: 1px dotted #eee; }}
+            .price-link {{ text-decoration: none; color: var(--sky-blue); font-weight: 800; border: 1px solid var(--sky-blue); padding: 3px 8px; border-radius: 5px; }}
+            
+            .views-count {{ font-size: 11px; color: var(--gray); margin-top: 5px; display: flex; align-items: center; gap: 4px; }}
+            .pagination {{ display: flex; justify-content: center; align-items: center; gap: 8px; margin: 50px 0; flex-wrap: wrap; }}
+            .page-btn {{ padding: 8px 15px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); cursor: pointer; font-weight: 700; color: var(--text); }}
+            .page-btn.active {{ background: var(--sky-blue); color: #fff; border-color: var(--sky-blue); }}
+            
+            #loading-spinner {{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }}
+            .spinner {{ width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--sky-blue); animation: spin 1s infinite; margin-bottom: 10px; }}
+            @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+            
+            .seo-content {{ background: var(--card-bg); border-top: 1px solid var(--border); padding: 40px 20px; margin-top: 50px; color: var(--text); }}
+            #ios-prompt {{ position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 350px; background: var(--card-bg); color: var(--text); padding: 15px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 10001; display: none; border: 2px solid var(--sky-blue); }}
+            #ios-prompt .close-btn {{ position: absolute; right: 10px; top: 10px; font-size: 18px; color: #999; cursor: pointer; }}
+            
+            footer {{ background: #2f3640; color: #dcdde1; padding: 60px 20px; margin-top: 80px; }}
+            .footer-content {{ max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; }}
+            .footer-links a {{ color: #a4b0be; text-decoration: none; font-size: 14px; }}
+            
+            @media (max-width: 600px) {{
+                .toolbar {{ gap: 10px; }}
+                .search-bar {{ width: 100%; order: -1; max-width: none; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <header>
+            <nav class="nav-container">
+                <a href="index.html" class="site-name">액상픽</a>
+                <ul class="nav-menu">
+                    <!-- '액상검색' 삭제 요청 반영 -->
+                    <li><a href="board.html">자유게시판</a></li>
+                    <li><a href="about.html">서비스소개</a></li>
+                    <li><button onclick="toggleTheme()" class="theme-toggle"><i class="fas fa-moon" id="theme-icon"></i></button></li>
+                </ul>
+            </nav>
+        </header>
+
+        <section class="hero">
+            <p>대한민국 온라인 최저가 액상 검색</p>
+            <h1>가장 스마트한 베이핑의 시작</h1>
+        </section>
+
+        <main>
+            <div class="toolbar">
+                <!-- 검색창 복구 -->
+                <div class="search-bar">
+                    <input type="text" id="mainSearch" placeholder="액상 검색..." onkeypress="if(event.keyCode==13) executeSearch()">
+                    <i class="fas fa-search" onclick="executeSearch()"></i>
+                </div>
+
+                <div class="cat-filters">
+                    <button class="filter-btn active" onclick="filterCategory('all', this)">전체</button>
+                    <button class="filter-btn" onclick="filterCategory('과일/멘솔', this)">과일/멘솔</button>
+                    <button class="filter-btn" onclick="filterCategory('연초', this)">연초</button>
+                    <button class="filter-btn" onclick="filterCategory('디저트', this)">디저트</button>
+                </div>
+                <div class="sort-options">
+                    <select id="sortSelect" onchange="sortData()">
+                        <option value="site-desc">일반순 (판매처 많은순)</option>
+                        <option value="views">인기순 (조회수)</option>
+                        <option value="price-asc">가격 낮은순</option>
+                        <option value="name">이름순</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="product-grid" id="productGrid">
+                {grid_items_html}
+            </div>
+            <div id="pagination" class="pagination"></div>
+
+            <section class="seo-content">
+                <div style="max-width: 1200px; margin: 0 auto;">
+                    <h2>💡 가장 스마트한 전자담배 액상 쇼핑, 액상픽(Juice Pick)</h2>
+                    <p>
+                        <strong>액상픽(Juice Pick)</strong>은 베이퍼 여러분의 합리적인 소비를 돕기 위해 탄생한 <strong>대한민국 No.1 전자담배 액상 가격비교 포털</strong>입니다. 
+                        수많은 온라인 샵에 흩어져 있는 과일 멘솔, 연초, 디저트 등 다양한 맛의 액상 가격을 실시간으로 수집하고 비교 분석합니다.
+                        <strong>입호흡 액상(30ml)</strong>을 중심으로 여러분이 찾는 인생 액상을 가장 저렴한 가격에 만나보실 수 있습니다.
+                    </p>
+                </div>
+            </section>
+        </main>
+        
+        <div id="loading-spinner"><div class="spinner"></div><p style="color:#fff;">로딩중...</p></div>
+        <div id="ios-prompt">
+            <span class="close-btn" onclick="document.getElementById('ios-prompt').style.display='none'">&times;</span>
+            <div style="color:var(--sky-blue); font-weight:800; margin-bottom:5px;">앱으로 이용하기</div>
+            아이폰 사파리 하단의 <b>공유 버튼</b>을 누르고 <b>'홈 화면에 추가'</b>를 선택하세요.
+        </div>
+
+        <footer>
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>액상픽 (JuicePick)</h4>
+                    <p>정확한 가격은 각 판매처에서 확인해 주세요.</p>
+                </div>
+            </div>
+            <p style="text-align:center; margin-top:40px; font-size:12px; color:#777;">&copy; 2024 JuicePick. All rights reserved.</p>
+        </footer>
+
+        <script>
+            let allCards = [];
+            let filteredCards = [];
+            let currentPage = 1;
+            const itemsPerPage = 52;
+            let currentCategory = 'all';
+
+            window.onload = function() {{
+                const grid = document.getElementById('productGrid');
+                allCards = Array.from(grid.children);
+                filteredCards = [...allCards];
+                
+                if ('serviceWorker' in navigator) {{
+                    navigator.serviceWorker.register('sw.js');
+                }}
+                
+                initTheme();
+                checkIOS();
+                sortData();
+            }};
+
+            // [수정] 기본 테마: 라이트모드 고정 (시스템 설정 무시)
+            function initTheme() {{
+                const savedTheme = localStorage.getItem('theme');
+                // 저장된 값이 'dark'일 때만 다크모드. 그 외엔 무조건 라이트 (prefers-color-scheme 무시)
+                if (savedTheme === 'dark') {{
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    document.getElementById('theme-icon').className = 'fas fa-sun';
+                }} else {{
+                    document.documentElement.removeAttribute('data-theme');
+                    document.getElementById('theme-icon').className = 'fas fa-moon';
+                }}
+            }}
+
+            function toggleTheme() {{
+                const doc = document.documentElement;
+                const icon = document.getElementById('theme-icon');
+                if (doc.getAttribute('data-theme') === 'dark') {{
+                    doc.removeAttribute('data-theme');
+                    localStorage.setItem('theme', 'light');
+                    icon.className = 'fas fa-moon';
+                }} else {{
+                    doc.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                    icon.className = 'fas fa-sun';
+                }}
+            }}
+
+            function checkIOS() {{
+                const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                if (isIos && !isStandalone) {{
+                    setTimeout(() => {{
+                         document.getElementById('ios-prompt').style.display = 'block';
+                    }}, 2000);
+                }}
+            }}
+
+            // 통합 필터 함수 (검색어 + 카테고리)
+            function applyFilters() {{
+                const query = document.getElementById('mainSearch').value.toLowerCase().replace(/\\s+/g, '');
+                const spinner = document.getElementById('loading-spinner');
+                spinner.style.display = 'flex';
+
+                setTimeout(() => {{
+                    filteredCards = allCards.filter(card => {{
+                        // 카테고리 매칭
+                        const catMatch = (currentCategory === 'all') || (card.dataset.category === currentCategory);
+                        
+                        // 검색어 매칭
+                        const title = card.querySelector('.product-title').innerText.toLowerCase().replace(/\\s+/g, '');
+                        const searchMatch = title.includes(query);
+
+                        return catMatch && searchMatch;
+                    }});
+                    
+                    sortData(false); // sortData 내부 타임아웃 방지
+                    spinner.style.display = 'none';
+                }}, 100);
+            }}
+
+            function executeSearch() {{
+                currentPage = 1;
+                applyFilters();
+            }}
+
+            function sortData(useTimeout = true) {{
+                const sortType = document.getElementById('sortSelect').value;
+                
+                const execSort = () => {{
+                    filteredCards.sort((a, b) => {{
+                        if (sortType === 'price-asc') {{
+                            return parseInt(a.dataset.price) - parseInt(b.dataset.price);
+                        }} else if (sortType === 'views') {{
+                            return parseInt(b.dataset.views) - parseInt(a.dataset.views);
+                        }} else if (sortType === 'name') {{
+                             return a.querySelector('.product-title').innerText.localeCompare(b.querySelector('.product-title').innerText);
+                        }} else {{
+                            return parseInt(b.dataset.sitecount) - parseInt(a.dataset.sitecount);
+                        }}
+                    }});
+                    
+                    currentPage = 1;
+                    renderCards();
+                }};
+
+                if (useTimeout) {{
+                    const spinner = document.getElementById('loading-spinner');
+                    spinner.style.display = 'flex';
+                    setTimeout(() => {{
+                        execSort();
+                        spinner.style.display = 'none';
+                    }}, 100);
+                }} else {{
+                    execSort();
+                }}
+            }}
+
+            function filterCategory(cat, btn) {{
+                currentCategory = cat;
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // 검색어 유지한 채로 카테고리 변경
+                applyFilters();
+            }}
+
+            function renderCards() {{
+                const grid = document.getElementById('productGrid');
+                grid.innerHTML = ''; 
+
+                const start = (currentPage - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+                const pageItems = filteredCards.slice(start, end);
+
+                pageItems.forEach(card => {{
+                    grid.appendChild(card);
+                }});
+                
+                renderPagination();
+                window.scrollTo(0, 0);
+            }}
+
+            function renderPagination() {{
+                const pagination = document.getElementById('pagination');
+                pagination.innerHTML = '';
+                
+                const totalPages = Math.ceil(filteredCards.length / itemsPerPage);
+                if (totalPages <= 1) return;
+
+                const currentGroup = Math.ceil(currentPage / 10);
+                const startPage = (currentGroup - 1) * 10 + 1;
+                const endPage = Math.min(startPage + 9, totalPages);
+
+                if (startPage > 1) {{
+                    const btn = createPageBtn('<', startPage - 1);
+                    pagination.appendChild(btn);
+                }}
+
+                for (let i = startPage; i <= endPage; i++) {{
+                    const btn = createPageBtn(i, i);
+                    if (i === currentPage) btn.classList.add('active');
+                    pagination.appendChild(btn);
+                }}
+
+                if (endPage < totalPages) {{
+                    const btn = createPageBtn('>', endPage + 1);
+                    pagination.appendChild(btn);
+                }}
+            }}
+
+            function createPageBtn(text, pageNum) {{
+                const btn = document.createElement('button');
+                btn.className = 'page-btn';
+                btn.innerText = text;
+                btn.onclick = () => {{
+                    currentPage = pageNum;
+                    renderCards();
+                }};
+                return btn;
+            }}
+
+            function toggleShopList(btn) {{
+                const list = btn.nextElementSibling;
+                list.classList.toggle('active');
+            }}
+            
+             function updateViews(key) {{
+                 firebase.database().ref('products').orderByChild('display_name').equalTo(key).once('value', snapshot => {{ }});
+            }}
+        </script>
+    </body>
+    </html>
+    """
+
+    filename = "index.html"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html_template)
+    
+    print(f"✅ 포털 스타일 리포트 생성 완료: {filename}")
+
+if __name__ == "__main__":
+    merged_data, sites = process_data()
+    if merged_data:
+        generate_report(merged_data, sites)
+    else:
+        print("❌ 생성할 데이터가 없습니다.")
