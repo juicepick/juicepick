@@ -251,7 +251,8 @@ def generate_report(data, sites):
         grid_items_html += f"""
         <div class="product-card" data-category="{item['category']}" data-price="{min_price}" data-views="{item.get('views', 0)}" data-sitecount="{site_count}" data-key="{key}">
             <div class="card-image">
-                <img src="{img_src}" loading="lazy" alt="{item['display_name']}" onerror="this.onerror=null; this.src='assets/logo_placeholder.png';">
+                <img src="{img_src}" loading="lazy" alt="{item['display_name']}" 
+                     onerror="this.onerror=null; this.src='https://raw.githubusercontent.com/juicepick/juicepick.github.io/master/assets/logo_placeholder.png';">
                 <span class="category-tag {item['category']}">{item['category']}</span>
             </div>
             <div class="card-info">
