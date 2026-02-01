@@ -106,7 +106,7 @@
                 <a href="index.html" class="site-name">액상픽</a>
                 <ul class="nav-menu">
                     <!-- '액상검색' 삭제 요청 반영 -->
-                    <li><a href="blog/index.html">블로그</a></li>
+                    <li><a href="blog/index.html">가이드</a></li>
                     <li><a href="board.html">자유게시판</a></li>
                     <li><a href="about.html">서비스소개</a></li>
                     <li><button onclick="toggleTheme()" class="theme-toggle"><i class="fas fa-moon" id="theme-icon"></i></button></li>
@@ -115,18 +115,63 @@
         </header>
 
         <section class="hero">
-            <p>대한민국 온라인 최저가 액상 검색</p>
-            <h1>가장 스마트한 베이핑의 시작</h1>
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="highlight">전자담배 액상 가격비교</span>의 모든 것<br>
+                    원하는 맛을 최저가로 찾아보세요
+                </h1>
+                <div class="search-container">
+                    <input type="text" id="searchInput" class="search-input" placeholder="액상 이름 검색 (예: 알로에, 갱쥬스)..." onkeyup="if(event.key === 'Enter') applyFilters()">
+                    <button class="search-btn" onclick="applyFilters()"><i class="fas fa-search"></i> 검색</button>
+                </div>
+            </div>
         </section>
 
+        <!-- [NEW] 추천 인기 액상 (비어 보이는 공간 채우기) -->
+        <section class="featured-section" style="max-width: 1200px; margin: 40px auto 20px; px; padding: 0 20px;">
+            <h2 style="font-size: 24px; margin-bottom: 20px; color: var(--text);">🔥 오늘의 MD 추천 인기 액상 TOP 3</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                <!-- 추천 1 -->
+                <div class="product-card" style="border: 2px solid var(--sky-blue);">
+                    <div style="padding: 5px 10px; background: var(--sky-blue); color: white; font-weight: bold; position: absolute; top: 0; left: 0; z-index: 10;">👑 베스트 1위</div>
+                    <div class="card-image">
+                        <img src="https://raw.githubusercontent.com/juicepick/juicepick.github.io/master/assets/logo_placeholder.png" alt="알로에 베라">
+                        <span class="category-tag 과일/멘솔">과일/멘솔</span>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="product-title">디톡스 알로에 베라 9mg</h3>
+                        <div class="price-section"><span class="price-val">최저가 보기</span></div>
+                        <button class="buy-btn" onclick="document.getElementById('searchInput').value='알로에'; applyFilters();">가격 비교하기</button>
+                    </div>
+                </div>
+                <!-- 추천 2 -->
+                <div class="product-card">
+                    <div class="card-image">
+                        <img src="https://raw.githubusercontent.com/juicepick/juicepick.github.io/master/assets/logo_placeholder.png" alt="마르키사">
+                        <span class="category-tag 과일">과일</span>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="product-title">테일러 마르키사 오리지널</h3>
+                        <div class="price-section"><span class="price-val">인기 급상승</span></div>
+                        <button class="buy-btn" onclick="document.getElementById('searchInput').value='마르키사'; applyFilters();">가격 비교하기</button>
+                    </div>
+                </div>
+                <!-- 추천 3 -->
+                <div class="product-card">
+                    <div class="card-image">
+                        <img src="https://raw.githubusercontent.com/juicepick/juicepick.github.io/master/assets/logo_placeholder.png" alt="노멘솔">
+                        <span class="category-tag 디저트">디저트</span>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="product-title">크림 오브 더 크랍 (크오크)</h3>
+                        <div class="price-section"><span class="price-val">스테디셀러</span></div>
+                        <button class="buy-btn" onclick="document.getElementById('searchInput').value='크오크'; applyFilters();">가격 비교하기</button>
+                    </div>
+                </div>
+            </div>
+        </section>
         <main>
             <div class="toolbar">
-                <!-- 검색창 복구 -->
-                <div class="search-bar">
-                    <input type="text" id="mainSearch" placeholder="액상 검색..." onkeypress="if(event.keyCode==13) executeSearch()">
-                    <i class="fas fa-search" onclick="executeSearch()"></i>
-                </div>
-
                 <div class="cat-filters">
                     <button class="filter-btn active" onclick="filterCategory('all', this)">전체</button>
                     <button class="filter-btn" onclick="filterCategory('과일/멘솔', this)">과일/멘솔</button>
@@ -52936,7 +52981,7 @@
                 </div>
             </div>
             <p style="text-align:center; margin-top:40px; font-size:12px; color:#777; border-top: 1px solid #353b48; padding-top: 20px;">
-                &copy; 2024 JuicePick. All rights reserved. Powered by JuiceHunter Engine.
+                &copy; 2026 JuicePick. All rights reserved. Powered by JuiceHunter Engine.
             </p>
         </footer>
 
