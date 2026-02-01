@@ -470,7 +470,7 @@ def generate_report(data, sites):
                 </div>
             </div>
             <p style="text-align:center; margin-top:40px; font-size:12px; color:#777; border-top: 1px solid #353b48; padding-top: 20px;">
-                &copy; 2024 JuicePick. All rights reserved. Powered by JuiceHunter Engine.
+                &copy; 2026 JuicePick. All rights reserved. Powered by JuiceHunter Engine.
             </p>
         </footer>
 
