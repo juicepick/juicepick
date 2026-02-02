@@ -1,0 +1,24 @@
+# Secrets
+key.json
+key1.txt
+key2.txt
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Logs & Temp
+*.log
+*.txt
+products_found.txt
+display_output.txt
+merge_log.txt
+key_results.json
+key_results.txt
+
+# System
+.DS_Store
+Thumbs.db

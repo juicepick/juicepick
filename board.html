@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자유게시판 | 액상픽</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/style.css">
+    <style>
+        /* 게시판 전용 추가 스타일 (상속받으므로 최소화) */
+        .board-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .post-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .write-btn {
+            position: fixed;
+            bottom: 85px;
+            right: 20px;
+            background: var(--primary);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+            cursor: pointer;
+            border: none;
+            z-index: 90;
+        }
+
+        /* 기존 스타일 중 필요한 부분만 유지 */
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #888;
+        }
+
+        .post-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .post-content {
+            font-size: 15px;
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .comment-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="nav-container"
+        style="background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); margin-bottom: 20px;">
+        <a href="index.html" class="site-name">액상픽</a>
+        <ul class="nav-menu">
+            <li><a href="blog/index.html">가이드</a></li>
+            <li><a href="board.html" style="color:var(--primary);">자유게시판</a></li>
+            <li><a href="about.html">서비스소개</a></li>
+        </ul>
+    </nav>
+    padding: 0;
+    box-sizing: border-box;
+    }
+
+    body {
+    font-family: 'Pretendard', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    }
+
+    header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    }
+
+    .nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    }
+
+    .site-name {
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--sky-blue);
+    text-decoration: none;
+    }
+
+    .nav-menu {
+    display: flex;
+    gap: 20px;
+    list-style: none;
+    }
+
+    .nav-menu a {
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 15px;
+    }
+
+
+    main {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 20px;
+    }
+
+    .board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    }
+
+    .write-btn {
+    background: var(--sky-blue);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    }
+
+    .post-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 15px;
+    position: relative;
+    }
+
+    .post-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #1e272e;
+    }
+
+    .post-meta {
+    font-size: 12px;
+    color: #7f8c8d;
+    display: flex;
+    gap: 15px;
+    }
+
+    .post-content {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #57606f;
+    white-space: pre-wrap;
+    display: none;
+    }
+
+    .post-card.open .post-content {
+    display: block;
+    border-top: 1px solid #f1f2f6;
+    padding-top: 15px;
+    margin-top: 15px;
+    }
+
+    .post-actions {
+    margin-top: 15px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    }
+
+    .action-btn {
+    background: none;
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--gray);
+    transition: 0.2s;
+    }
+
+    .action-btn:hover {
+    border-color: var(--sky-blue);
+    color: var(--sky-blue);
+    }
+
+    /* Comments Section */
+    .comment-section {
+    margin-top: 20px;
+    background: #f9f9fb;
+    border-radius: 10px;
+    padding: 15px;
+    }
+
+    .comment-item {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    }
+
+    .comment-meta {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 4px;
+    }
+
+    .comment-text {
+    font-size: 13px;
+    }
+
+    .comment-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 15px;
+    }
+
+    .comment-form input {
+    flex: 1;
+    padding: 8px 12px;
+    margin-bottom: 0;
+    font-size: 13px;
+    }
+
+    .comment-btn {
+    background: var(--sky-blue);
+    color: white;
+    border: none;
+    padding: 0 15px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    }
+
+    /* Form Popup */
+    #postForm {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+    width: 90%;
+    max-width: 500px;
+    }
+
+    .overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    }
+
+    input,
+    textarea {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    }
+
+    .form-actions {
+    display: flex;
+    gap: 10px;
+    }
+
+    .form-actions button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    }
+
+    .submit-btn {
+    background: var(--sky-blue);
+    color: white;
+    }
+
+    .cancel-btn {
+    background: #f1f2f6;
+    }
+    </style>
+    </head>
+
+    <body>
+        <header>
+            <nav class="nav-container">
+                <a href="index.html" class="site-name">액상픽</a>
+                <ul class="nav-menu">
+                    <li><a href="index.html">액상검색</a></li>
+                    <li><a href="board.html">자유게시판</a></li>
+                    <li><a href="about.html">서비스소개</a></li>
+                </ul>
+            </nav>
+
+        </header>
+
+        <main>
+            <div class="board-header">
+                <h1>익명 자유게시판</h1>
+                <button class="write-btn" onclick="toggleForm(true)">글쓰기</button>
+            </div>
+
+            <div id="postList">
+                <!-- Posts will be loaded here -->
+                <div class="post-card">
+                    <div class="post-title">환영합니다! 액상픽 게시판입니다.</div>
+                    <div class="post-meta">
+                        <span><i class="fas fa-user"></i> 운영자</span>
+                        <span><i class="far fa-clock"></i> 2024-02-02</span>
+                    </div>
+                    <div class="post-content">비매너 게시글은 예고 없이 삭제될 수 있습니다.</div>
+                </div>
+            </div>
+        </main>
+
+        <div class="overlay" onclick="toggleForm(false)"></div>
+        <div id="postForm">
+            <h2>새 글 작성</h2>
+            <br>
+            <input type="text" id="author" placeholder="닉네임 (익명)">
+            <input type="text" id="title" placeholder="제목">
+            <textarea id="content" rows="6" placeholder="내용을 입력하세요..."></textarea>
+            <input type="password" id="password" placeholder="비밀번호 (수정/삭제용)">
+            <div class="form-actions">
+                <button class="cancel-btn" onclick="toggleForm(false)">취소</button>
+                <button class="submit-btn" onclick="submitPost()">등록하기</button>
+            </div>
+        </div>
+
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+        <script>
+            // Firebase config - key.json 정보 바탕으로 설정 (실제 배포 시 환경 변수 처리 권장)
+            const firebaseConfig = {
+                databaseURL: "https://juicehunter-default-rtdb.asia-southeast1.firebasedatabase.app"
+            };
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.database();
+
+            function toggleForm(show) {
+                document.getElementById('postForm').style.display = show ? 'block' : 'none';
+                document.querySelector('.overlay').style.display = show ? 'block' : 'none';
+            }
+
+            function submitPost() {
+                const author = document.getElementById('author').value || "익명";
+                const title = document.getElementById('title').value;
+                const content = document.getElementById('content').value;
+                const password = document.getElementById('password').value;
+
+                if (!title || !content || !password) return alert("제목, 내용, 비밀번호를 모두 입력해주세요.");
+
+                const newPostRef = db.ref('board').push();
+                newPostRef.set({
+                    author, title, content, password,
+                    date: new Date().toISOString().split('T')[0]
+                }).then(() => {
+                    alert("등록되었습니다.");
+                    toggleForm(false);
+                    location.reload();
+                });
+            }
+
+            function deletePost(key, realPassword) {
+                event.stopPropagation();
+                const inputPw = prompt("비밀번호를 입력하세요.");
+                if (inputPw === realPassword) {
+                    if (confirm("정말 삭제하시겠습니까?")) {
+                        db.ref(`board/${key}`).remove().then(() => {
+                            alert("삭제되었습니다.");
+                            location.reload();
+                        });
+                    }
+                } else if (inputPw !== null) {
+                    alert("비밀번호가 틀렸습니다.");
+                }
+            }
+
+            function addComment(event, postKey) {
+                event.preventDefault();
+                const input = event.target.querySelector('input');
+                const text = input.value;
+                if (!text) return;
+
+                db.ref(`board/${postKey}/comments`).push({
+                    author: "익명",
+                    text: text,
+                    date: new Date().toLocaleDateString()
+                }).then(() => {
+                    input.value = "";
+                    // 해당 코멘트 영역만 새로고침 로직 대신 단순 얼럿 혹은 UI 업데이트 추천
+                    alert("댓글이 등록되었습니다.");
+                    location.reload();
+                });
+            }
+
+            // 로드 및 펼치기 기능
+            db.ref('board').limitToLast(30).once('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+
+                const list = document.getElementById('postList');
+                Object.keys(data).reverse().forEach(key => {
+                    const post = data[key];
+                    const comments = post.comments ? Object.values(post.comments) : [];
+                    const commentHtml = comments.map(c => `
+                    <div class="comment-item">
+                        <div class="comment-meta">${c.author} | ${c.date}</div>
+                        <div class="comment-text">${c.text}</div>
+                    </div>
+                `).join('');
+
+                    const div = document.createElement('div');
+                    div.className = 'post-card';
+                    div.innerHTML = `
+                    <div onclick="this.parentElement.classList.toggle('open')">
+                        <div class="post-title">${post.title}</div>
+                        <div class="post-meta">
+                            <span><i class="fas fa-user"></i> ${post.author}</span>
+                            <span><i class="far fa-clock"></i> ${post.date}</span>
+                            <span><i class="far fa-comment"></i> ${comments.length}</span>
+                        </div>
+                    </div>
+                    <div class="post-content">
+                        ${post.content}
+                        <div class="post-actions">
+                            <button class="action-btn" onclick="deletePost('${key}', '${post.password}')"><i class="fas fa-trash"></i> 삭제</button>
+                        </div>
+                        <div class="comment-section">
+                            <div class="comment-list">${commentHtml}</div>
+                            <form class="comment-form" onsubmit="addComment(event, '${key}')">
+                                <input type="text" placeholder="댓글을 입력하세요...">
+                                <button type="submit" class="comment-btn">등록</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                    list.appendChild(div);
+                });
+            });
+        </script>
+    </body>
+
+</html>
