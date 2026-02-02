@@ -596,48 +596,47 @@ def generate_report(data, sites):
                         execSort();
                         spinner.style.display = 'none';
                     }}, 100);
-                    }, 100);
-                } else {
+                }} else {{
                     execSort();
-                }
-            }
+                }}
+            }}
 
             // [기능 추가] 조회수 증가 함수 (Firebase)
-            function updateViews(key) {
+            function updateViews(key) {{
                 if (!firebase || !firebase.database) return;
                 const dbRef = firebase.database().ref('products/' + key + '/views');
-                dbRef.transaction(currentViews => {
+                dbRef.transaction(currentViews => {{
                     return (currentViews || 0) + 1;
-                }).catch(err => console.error("Views update failed", err));
-            }
+                }}).catch(err => console.error("Views update failed", err));
+            }}
 
             // [기능 추가] 상점 목록 토글 또는 바로가기
-            function toggleShopList(btn, key, linkIfOne) {
+            function toggleShopList(btn, key, linkIfOne) {{
                 // 만약 linkIfOne이 존재하면 (판매처가 1곳인 경우), 목록 열지 않고 바로 이동
-                if (linkIfOne && linkIfOne !== 'null' && linkIfOne !== '') {
+                if (linkIfOne && linkIfOne !== 'null' && linkIfOne !== '') {{
                     updateViews(key);
                     window.open(linkIfOne, '_blank');
                     return;
-                }
+                }}
 
                 // 판매처가 여러 곳이면 목록 토글
                 const list = btn.nextElementSibling;
                 list.classList.toggle('active');
-                if (list.classList.contains('active')) {
+                if (list.classList.contains('active')) {{
                     btn.textContent = '목록 닫기';
-                } else {
+                }} else {{
                     btn.textContent = '최저가 확인하기';
-                }
-            }
+                }}
+            }}
 
-            function filterCategory(cat, btn) {
+            function filterCategory(cat, btn) {{
                 currentCategory = cat;
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 
                 // 검색어 유지한 채로 카테고리 변경
                 applyFilters();
-            }}
+            }}}
 
             function renderCards() {{
                 const grid = document.getElementById('productGrid');
