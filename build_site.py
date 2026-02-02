@@ -807,11 +807,11 @@ def generate_report(data, sites):
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_template)
     
-    print(f"✅ 포털 스타일 리포트 생성 완료: {filename}")
+    print(f"[SUCCESS] Portal Style Report Generated: {filename}")
 
 if __name__ == "__main__":
     merged_data, sites = process_data()
     if merged_data:
         generate_report(merged_data, sites)
     else:
-        print("❌ 생성할 데이터가 없습니다.")
+        print("[ERROR] No data to generate.")
