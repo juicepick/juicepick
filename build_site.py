@@ -323,24 +323,8 @@ def generate_report(data, sites):
         <link rel="icon" type="image/png" href="assets/favicon.png">
         <meta property="og:image" content="https://raw.githubusercontent.com/juicepick/juicepick.github.io/master/assets/og_image.png">
         
-        <style>
-            :root {{
-            .spinner {{ width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--sky-blue); animation: spin 1s infinite; margin-bottom: 10px; }}
-            @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-            
-            .seo-content {{ background: var(--card-bg); border-top: 1px solid var(--border); padding: 40px 20px; margin-top: 50px; color: var(--text); }}
-            #ios-prompt {{ position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 350px; background: var(--card-bg); color: var(--text); padding: 15px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 10001; display: none; border: 2px solid var(--sky-blue); }}
-            #ios-prompt .close-btn {{ position: absolute; right: 10px; top: 10px; font-size: 18px; color: #999; cursor: pointer; }}
-            
-            footer {{ background: #2f3640; color: #dcdde1; padding: 60px 20px; margin-top: 80px; }}
-            .footer-content {{ max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; }}
-            .footer-links a {{ color: #a4b0be; text-decoration: none; font-size: 14px; }}
-            
-            @media (max-width: 600px) {{
-                .toolbar {{ gap: 10px; }}
-                .search-bar {{ width: 100%; order: -1; max-width: none; }}
-            }}
-        </style>
+        <!-- Main CSS (Relative Path) -->
+        <link rel="stylesheet" href="assets/style.css">
     </head>
     <body>
         <header>
