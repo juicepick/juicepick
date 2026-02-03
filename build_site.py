@@ -64,7 +64,8 @@ WORD_MAP = {
 # 사이트 내부 키 -> 실제 이름 매핑
 SITE_NAME_MAP = {
     'modu': '모두의액상', 'juice24': '액상24', 'tjf': '더쥬스팩토리',
-    'siasiu': '샤슈컴퍼니', 'vapemonster': '베이프몬스터', 'juice99': '99액상'
+    'siasiu': '샤슈컴퍼니', 'vapemonster': '베이프몬스터', 'juice99': '99액상',
+    'juicebox': '쥬스박스'
 }
 
 def classify_category(name):
@@ -94,6 +95,7 @@ except FileNotFoundError:
     pass
 
 def normalize_product(raw_name):
+    raw_name = re.sub(r' - .*? 이미지$', '', raw_name)
     if raw_name in CUSTOM_ALIASES:
         raw_name = CUSTOM_ALIASES[raw_name]
     temp_name = raw_name.lower()
@@ -348,6 +350,9 @@ def generate_report(data, sites):
         # 최저가 찾기
         r_min_price = min([p['price'] for p in r_item['prices'].values()])
         
+        # [Safety] Double-escape for RECOMMENDED items
+        r_safe_name = r_item['display_name'].replace('"', '&quot;').replace("'", "\\'")
+
         featured_html += f"""
                 <div class="product-card" style="position: relative;">
                     {rank_badge}
@@ -358,7 +363,7 @@ def generate_report(data, sites):
                     <div class="card-info">
                         <h3 class="product-title">{r_item['display_name']}</h3>
                         <div class="price-section"><span class="price-val">{format(r_min_price, ',')}원~</span></div>
-                        <button class="buy-btn" onclick="document.getElementById('searchInput').value='{safe_name}'; applyFilters();">가격 비교하기</button>
+                        <button class="buy-btn" onclick="document.getElementById('searchInput').value='{r_safe_name}'; applyFilters(); window.scrollTo({{top: document.getElementById('search-anchor').offsetTop - 100, behavior: 'smooth'}});">가격 비교하기</button>
                     </div>
                 </div>
         """
