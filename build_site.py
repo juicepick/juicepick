@@ -755,7 +755,10 @@ def generate_report(data, sites):
                     return catMatch && searchMatch;
                 }});
                 
-                currentPage = 1; // 검색 시 1페이지로 리셋
+                // 검색 버튼/엔터로 트리거된 경우에만 1페이지로 리셋 (URL 복원 시에는 유지)
+                if (shouldNavigate) {{
+                    currentPage = 1;
+                }}
                 sortData(false);
                 
                 // 검색 버튼/엔터로 트리거된 경우에만 URL 업데이트 (window.onload에서는 false)
