@@ -756,10 +756,7 @@ def generate_report(data, sites):
                 }});
                 
                 // 검색 버튼/엔터로 트리거된 경우에만 1페이지로 리셋 (URL 복원 시에는 유지)
-                if (shouldNavigate) {{
-                    currentPage = 1;
-                }}
-                sortData(false);
+                sortData(false, shouldNavigate); // shouldNavigate = true일 때만 페이지 리셋
                 
                 // 검색 버튼/엔터로 트리거된 경우에만 URL 업데이트 (window.onload에서는 false)
                 if (shouldNavigate) {{
@@ -793,7 +790,7 @@ def generate_report(data, sites):
                 applyFilters();
             }};
 
-            function sortData(useTimeout = true) {{
+            function sortData(useTimeout = true, resetPage = true) {{
                 const sortType = document.getElementById('sortSelect').value;
                 
                 const execSort = () => {{
@@ -809,7 +806,9 @@ def generate_report(data, sites):
                         }}
                     }});
                     
-                    currentPage = 1;
+                    if (resetPage) {{
+                        currentPage = 1;
+                    }}
                     renderCards();
                 }};
 
